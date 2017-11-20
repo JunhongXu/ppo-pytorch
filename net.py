@@ -42,3 +42,15 @@ class MLPPolicy(nn.Module):
         # action prob on log scale
         logprob = log_normal_density(action, mean, std=std, log_std=self.logstd)
         return v, action, logprob
+
+
+if __name__ == '__main__':
+    from torch.autograd import Variable
+
+    net = MLPPolicy(3, 2)
+
+    observation = Variable(torch.randn(2, 3))
+    v, action, logprob = net.forward(observation)
+    print(v)
+    print(action)
+    print(logprob)
