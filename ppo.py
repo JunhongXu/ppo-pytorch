@@ -44,7 +44,7 @@ def ppo_update(policy, optimizer, batch_size, memory, nupdates):
             sampled_returns = sampled_returns.view(-1, 1)
             value_loss = F.mse_loss(new_value, sampled_returns)
 
-            loss = policy_loss + value_loss - 0.02 * dist_entropy
+            loss = policy_loss + value_loss - 0.002 * dist_entropy
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -99,12 +99,12 @@ def generate_trajectory(env, policy, max_step, is_render=False):
 
 if __name__ == '__main__':
     """Somthing learned: need to update multiple times for ppo!!!! not just 1 time!!!!!!"""
-    env = gym.make('MountainCarContinuous-v0')
+    env = gym.make('BipedalWalkerHardcore-v2')
     policy = MLPPolicy(env.observation_space.shape[0], env.action_space.shape[0])
     policy.cuda()
-    opt = Adam(policy.parameters(), lr=5e-4)
+    opt = Adam(policy.parameters(), lr=1e-4)
     mse = nn.MSELoss()
-    for e in range(6000):
+    for e in range(10000):
         if e % 100 == 0 and e != 0:
             is_render = True
         else:
