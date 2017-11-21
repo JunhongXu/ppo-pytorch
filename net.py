@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from utils import log_normal_density
+import math
 
 
 class MLPPolicy(nn.Module):
@@ -11,6 +12,7 @@ class MLPPolicy(nn.Module):
         self.act_fc1 = nn.Linear(obs_space, 64)
         self.act_fc2 = nn.Linear(64, 64)
         self.mu = nn.Linear(64, action_space)
+        self.mu.weight.data.mul_(0.1)
         # torch.log(std)
         self.logstd = nn.Parameter(torch.zeros(action_space))
 
@@ -18,6 +20,7 @@ class MLPPolicy(nn.Module):
         self.value_fc1 = nn.Linear(obs_space, 64)
         self.value_fc2 = nn.Linear(64, 64)
         self.value_fc3 = nn.Linear(64, 1)
+        self.value_fc3.weight.data.mul(0.1)
 
     def forward(self, x):
         """
@@ -29,8 +32,9 @@ class MLPPolicy(nn.Module):
         act = self.act_fc2(act)
         act = F.tanh(act)
         mean = self.mu(act)  # N, num_actions
-        std = torch.exp(self.logstd)
-        action = mean + std
+        logstd = self.logstd.expand_as(mean)
+        std = torch.exp(logstd)
+        action = torch.normal(mean, std)
 
         # value
         v = self.value_fc1(x)
@@ -40,8 +44,18 @@ class MLPPolicy(nn.Module):
         v = self.value_fc3(v)
 
         # action prob on log scale
-        logprob = log_normal_density(action, mean, std=std, log_std=self.logstd)
-        return v, action, logprob
+        logprob = log_normal_density(action, mean, std=std, log_std=logstd)
+        return v, action, logprob, mean
+
+    def evaluate_actions(self, x, action):
+        v, _, _, mean = self.forward(x)
+        logstd = self.logstd.expand_as(mean)
+        std = torch.exp(logstd)
+        # evaluate
+        logprob = log_normal_density(action, mean, log_std=logstd, std=std)
+        dist_entropy = 0.5 + 0.5 * math.log(2 * math.pi) + logstd
+        dist_entropy = dist_entropy.sum(-1).mean()
+        return v, logprob, dist_entropy
 
 
 if __name__ == '__main__':
@@ -50,7 +64,9 @@ if __name__ == '__main__':
     net = MLPPolicy(3, 2)
 
     observation = Variable(torch.randn(2, 3))
-    v, action, logprob = net.forward(observation)
+    v, action, logprob, mean = net.forward(observation)
     print(v)
     print(action)
     print(logprob)
+    print(mean)
+    print(net.logstd)
