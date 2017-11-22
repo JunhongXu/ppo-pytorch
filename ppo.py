@@ -11,8 +11,8 @@ import os
 import tensorboardX
 
 
-env_name = 'BipedalWalkerHardcore-v2'
-coeff_entropy = 0.0025
+env_name = 'BipedalWalker-v2'
+coeff_entropy = 0.003
 lr = 2e-4
 mini_batch_size = 64
 horizon = 2048
@@ -120,7 +120,7 @@ def generate_trajectory(env, policy, max_step, is_render=False):
 if __name__ == '__main__':
     """Somthing learned: need to update multiple times for ppo!!!! not just 1 time!!!!!!"""
 
-    env = gym.make('BipedalWalkerHardcore-v2')
+    env = gym.make(env_name)
     policy = MLPPolicy(env.observation_space.shape[0], env.action_space.shape[0])
     policy.cuda()
     opt = Adam(policy.parameters(), lr=lr)
