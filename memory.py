@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 class Rollouts(object):
     def __init__(self, obs_space, action_space, max_len):
         self.observations = np.empty(max_len, obs_space).astype(np.float32)

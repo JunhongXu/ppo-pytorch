@@ -6,6 +6,22 @@ from net import MLPPolicy
 import gym
 from torch.optim import Adam
 import torch.nn as nn
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
+import os
+import tensorboardX
+
+
+env_name = 'BipedalWalkerHardcore-v2'
+coeff_entropy = 0.0025
+lr = 2e-4
+mini_batch_size = 64
+horizon = 2048
+nupdates = 5
+nepoch = 40000
+clip_value = 0.2
+policy_path = '{}/lr_{}/coeff_entropy_{}/batch_size_{}/horizon_{}'. \
+    format(env_name, lr, coeff_entropy, mini_batch_size, horizon)
+writer = tensorboardX.SummaryWriter(policy_path+'/log/')
 
 
 def calculate_returns(rewards, dones, last_value, gamma=0.99):
@@ -17,14 +33,16 @@ def calculate_returns(rewards, dones, last_value, gamma=0.99):
     return returns
 
 
-def ppo_update(policy, optimizer, batch_size, memory, nupdates):
+def ppo_update(policy, optimizer, batch_size, memory, nupdates, epoch):
     obs, actions, logprobs, returns, values = memory
     advantages = returns - values
     advantages = (advantages - advantages.mean()) / advantages.std()
-    nstep = obs.shape[0]//batch_size
+
     for update in range(nupdates):
-        for step in range(nstep):
-            index = np.random.randint(0, obs.shape[0], batch_size)
+        sampler = BatchSampler(SubsetRandomSampler(list(range(advantages.shape[0]))), batch_size=batch_size,
+                               drop_last=False)
+        nbatches = len(sampler)
+        for i, index in enumerate(sampler):
             sampled_obs = Variable(torch.from_numpy(obs[index])).float().cuda()
             sampled_actions = Variable(torch.from_numpy(actions[index])).float().cuda()
             sampled_logprobs = Variable(torch.from_numpy(logprobs[index])).float().cuda()
@@ -38,22 +56,24 @@ def ppo_update(policy, optimizer, batch_size, memory, nupdates):
 
             sampled_advs = sampled_advs.view(-1, 1)
             surrogate1 = ratio * sampled_advs
-            surrogate2 = torch.clamp(ratio, 1 - 0.2, 1 + 0.2) * sampled_advs   # 0.2 for now
+            surrogate2 = torch.clamp(ratio, 1 - clip_value, 1 + clip_value) * sampled_advs   # 0.2 for now
             policy_loss = -torch.min(surrogate1, surrogate2).mean()
 
             sampled_returns = sampled_returns.view(-1, 1)
             value_loss = F.mse_loss(new_value, sampled_returns)
 
-            loss = policy_loss + value_loss - 0.002 * dist_entropy
+            loss = policy_loss + value_loss - coeff_entropy * dist_entropy
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-    print('value loss', value_loss.data[0])
-    print('policy loss', policy_loss.data[0])
-    print('distribution entropy', dist_entropy.data[0])
+            writer.add_scalar('ppo/value_loss', value_loss.data[0], global_step=(epoch + update) * nbatches + i)
+            writer.add_scalar('ppo/policy_loss', policy_loss.data[0], global_step=(epoch + update) * nbatches + i)
+            writer.add_scalar('ppo/entropy', dist_entropy.data[0], global_step=(epoch + update) * nbatches + i)
+
+
 
 def generate_trajectory(env, policy, max_step, is_render=False):
-    """generate a single trajectory using policy return the experiences"""
+    """generate a batch of examples using policy"""
     nstep = 0
     obs = env.reset()
     done = False
@@ -68,7 +88,7 @@ def generate_trajectory(env, policy, max_step, is_render=False):
         value, action, logprob, mean = policy(obs)
         value, action, logprob = value.data.cpu().numpy()[0], action.data.cpu().numpy()[0], \
                                  logprob.data.cpu().numpy()[0]
-        # print(action, value)
+
         next_obs, reward, done, _ = env.step(action)
         observations.append(obs.data.cpu().numpy()[0])
         rewards.append(reward)
@@ -94,21 +114,29 @@ def generate_trajectory(env, policy, max_step, is_render=False):
     actions = np.asarray(actions)
     returns = calculate_returns(rewards, dones, last_value)
     print(rewards.sum())
-    return observations, actions, logprobs, returns, values
+    return observations, actions, logprobs, returns, values, rewards
 
 
 if __name__ == '__main__':
     """Somthing learned: need to update multiple times for ppo!!!! not just 1 time!!!!!!"""
+
     env = gym.make('BipedalWalkerHardcore-v2')
     policy = MLPPolicy(env.observation_space.shape[0], env.action_space.shape[0])
     policy.cuda()
-    opt = Adam(policy.parameters(), lr=1e-4)
+    opt = Adam(policy.parameters(), lr=lr)
     mse = nn.MSELoss()
-    for e in range(10000):
+
+    if not os.path.exists(policy_path):
+        os.makedirs(policy_path)
+
+    for e in range(nepoch):
         if e % 100 == 0 and e != 0:
             is_render = True
         else:
             is_render = False
-        observations, actions, logprobs, returns, values = generate_trajectory(env, policy, 2048, is_render=is_render)
+        observations, actions, logprobs, returns, values, rewards = generate_trajectory(env, policy, horizon, is_render=is_render)
+        writer.add_scalar('ppo/mean_reward', np.mean(rewards), global_step=e)
         memory = (observations, actions, logprobs, returns[:-1], values)
-        ppo_update(policy, opt, 64, memory, 5)
+        ppo_update(policy, opt, mini_batch_size, memory, nupdates, e)
+        # save every epoch
+        torch.save(policy.state_dict(), policy_path+'/policy.pth')
