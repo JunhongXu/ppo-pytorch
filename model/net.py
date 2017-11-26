@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from utils import log_normal_density
+from model.utils import log_normal_density
 import math
 
 
@@ -10,16 +10,16 @@ class MLPPolicy(nn.Module):
         super(MLPPolicy, self).__init__()
         # action network
         self.act_fc1 = nn.Linear(obs_space, 64)
-        self.act_fc2 = nn.Linear(64, 64)
-        self.mu = nn.Linear(64, action_space)
+        self.act_fc2 = nn.Linear(64, 128)
+        self.mu = nn.Linear(128, action_space)
         self.mu.weight.data.mul_(0.1)
         # torch.log(std)
         self.logstd = nn.Parameter(torch.zeros(action_space))
 
         # value network
         self.value_fc1 = nn.Linear(obs_space, 64)
-        self.value_fc2 = nn.Linear(64, 64)
-        self.value_fc3 = nn.Linear(64, 1)
+        self.value_fc2 = nn.Linear(64, 128)
+        self.value_fc3 = nn.Linear(128, 1)
         self.value_fc3.weight.data.mul(0.1)
 
     def forward(self, x):

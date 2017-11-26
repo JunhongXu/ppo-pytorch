@@ -30,6 +30,5 @@ class Rollouts(object):
             insert one sample trajectory into the memory
         """
 
-
     def compute_returns(self):
         pass
