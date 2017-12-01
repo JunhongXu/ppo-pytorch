@@ -2,12 +2,7 @@ import torch
 from torch.autograd import Variable
 from torch.nn import functional as F
 import numpy as np
-from model.net import MLPPolicy
-import gym
-from torch.optim import Adam
-import torch.nn as nn
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-
 
 
 def calculate_returns(rewards, dones, last_value, gamma=0.99):
