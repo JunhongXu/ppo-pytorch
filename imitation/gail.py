@@ -91,7 +91,7 @@ class GAIL(object):
             update the discriminator using GAN loss function: 0 is the expert, 1 is the policy
             50 state-action paris are sampled
         """
-        # sample batch_size of expert trajectories
+        # sample batch_size of expert trajectories! problem: samples are not the same!!!
         exp_obs, exp_action = random.sample(self.exp_trajs[0], batch_size), random.sample(self.exp_trajs[1], batch_size)
         policy_observations, policy_actions, _, _, _, _ = self.policy_trajs
         nsamples = len(exp_obs)

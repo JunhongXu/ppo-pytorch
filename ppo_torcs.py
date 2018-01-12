@@ -29,8 +29,8 @@ def convert_obs(obs):
 
 if __name__ == '__main__':
     # hyper-parameters
-    coeff_entropy = 0.001
-    lr = 9e-4
+    coeff_entropy = 0.00001
+    lr = 5e-4
     mini_batch_size = 64
     horizon = 1024
     nupdates = 10
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     train = True
     # initialize env
     env_name = 'torcs_game'
-    env = TorcsEnv(throttle=True, brake=True)
+    env = TorcsEnv(throttle=True, brake=True, vision=True)
 
     policy = MLPPolicy(35, action_space=env.action_space.shape[0])
     policy.cuda()
@@ -69,4 +69,4 @@ if __name__ == '__main__':
             print('Entroy', dist_entropy)
             print('Policy loss', policy_loss)
             print('Value loss', value_loss)
-            torch.save(policy.state_dict(), 'policy.pth')
+            torch.save(policy.state_dict(), 'torcs/policy.pth')
