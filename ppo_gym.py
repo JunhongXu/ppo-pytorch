@@ -10,8 +10,8 @@ from model.ppo import ppo_update, generate_trajectory
 
 
 if __name__ == '__main__':
-    env_name = 'MountainCarContinuous-v0'
-    coeff_entropy = 0.08
+    env_name = 'BipedalWalker-v2'
+    coeff_entropy = 1e-4
     lr = 2e-4
     mini_batch_size = 64
     horizon = 2048

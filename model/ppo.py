@@ -37,7 +37,7 @@ def ppo_update(policy, optimizer, batch_size, memory, nupdates,
 
             sampled_advs = sampled_advs.view(-1, 1)
             surrogate1 = ratio * sampled_advs
-            surrogate2 = torch.clamp(ratio, 1 - clip_value, 1 + clip_value) * sampled_advs   # 0.2 for now
+            surrogate2 = torch.clamp(ratio, 1 - clip_value, 1 + clip_value) * sampled_advs
             policy_loss = -torch.min(surrogate1, surrogate2).mean()
 
             sampled_returns = sampled_returns.view(-1, 1)
@@ -73,7 +73,6 @@ def generate_trajectory(env, policy, max_step, obs_fn=None, progress=False,
         value, action, logprob, mean = policy(obs)
         value, action, logprob = value.data.cpu().numpy()[0], action.data.cpu().numpy()[0], \
                                  logprob.data.cpu().numpy()[0]
-
         next_obs, reward, done, _ = env.step(action)
         observations.append(obs.data.cpu().numpy()[0])
         rewards.append(reward)
