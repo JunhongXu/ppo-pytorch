@@ -1,13 +1,14 @@
-import torch
-import numpy as np
-from model.net import MLPPolicy
-import gym
-from torch.optim import Adam
-import torch.nn as nn
 import os
-import tensorboardX
-from model.ppo import ppo_update, generate_trajectory
 
+import gym
+import numpy as np
+import tensorboardX
+import torch
+import torch.nn as nn
+from model.ppo import ppo_update, generate_trajectory
+from torch.optim import Adam
+
+from old.model.net import MLPPolicy
 
 if __name__ == '__main__':
     env_name = 'BipedalWalker-v2'

@@ -1,8 +1,10 @@
+import math
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from model.utils import log_normal_density
-import math
+
+from old.model.utils import log_normal_density
 
 
 class CNNPolicy(nn.Module):

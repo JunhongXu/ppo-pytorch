@@ -1,12 +1,14 @@
-import cv2
-from gym import spaces
-import numpy as np
-# from os import path
-import torcs.snakeoil3_gym as snakeoil3
-import copy
 import collections as col
+import copy
 import os
 import time
+
+import cv2
+import numpy as np
+from gym import spaces
+
+# from os import path
+from old import torcs as snakeoil3
 
 
 class TorcsEnv:
