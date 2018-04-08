@@ -5,10 +5,10 @@ import numpy as np
 import tensorboardX
 import torch
 import torch.nn as nn
-from model.ppo import ppo_update, generate_trajectory
+from ppo_single.model.ppo import ppo_update, generate_trajectory
 from torch.optim import Adam
 
-from old.model.net import MLPPolicy
+from ppo_single.model.net import MLPPolicy
 
 if __name__ == '__main__':
     env_name = 'BipedalWalker-v2'

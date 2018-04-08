@@ -2,12 +2,12 @@ import os
 
 import numpy as np
 import torch
-from model.ppo import generate_trajectory, ppo_update
+from ppo_single.model.ppo import generate_trajectory, ppo_update
 from torch.nn import MSELoss
 from torch.optim import Adam
-from torcs.gym_torcs import TorcsEnv
+from ppo_single.torcs.gym_torcs import TorcsEnv
 
-from old.model.net import MLPPolicy
+from ppo_single.model.net import MLPPolicy
 
 
 def convert_obs(obs):
