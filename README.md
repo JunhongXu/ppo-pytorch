@@ -20,4 +20,4 @@ remember to tune the hyper-parameters a bit.
 Ray is a distributed framework for training deep learning models. This update integrates Ray and 
 rllib to allow the ppo agent collect data in different environments in parallel. 
 
-The new old scripts are in ppo_single and the updated version is in ppo_distribute.
+The new old scripts are in ppo_single and the updated version is in ppo_distribute(still in progress.)
