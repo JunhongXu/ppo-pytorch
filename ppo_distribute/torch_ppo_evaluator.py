@@ -2,7 +2,7 @@ import torch
 from ray.rllib.optimizers.sample_batch import SampleBatch
 from torch.autograd import Variable
 from ray.rllib.optimizers.policy_evaluator import PolicyEvaluator
-from agent import MLPPolicy
+from ppo_distribute.agent import MLPPolicy
 import numpy as np
 import torch.optim as optim
 
@@ -41,10 +41,9 @@ class TorchPPOEvaluator(PolicyEvaluator):
     def __init__(self, config, env_creator):
         self.config = config
         self.env = env_creator(self.config['env_config'])
-        self.action_dim = self.env.action_space.n
-        self.obs_dim = self.env.observation_space.shape
+        self.action_dim = self.env.action_space.shape[0]
+        self.obs_dim = self.env.observation_space.shape[0]
         self.net = MLPPolicy(self.obs_dim, self.action_dim)
-
         if self.config['cuda']:
             self.net.cuda()
 
@@ -55,13 +54,15 @@ class TorchPPOEvaluator(PolicyEvaluator):
         # initialize torch optimizer
         self.optimizer = optim.SGD(self.net.parameters(), lr=self.config['lr'])
 
+        print('[!]Creating Pytorch Policy Evaluator.')
+
     def sample(self):
         """sample rollouts from the environment, being called in step in PolicyOptimizer"""
         observations, rewards, actions, logprobs, dones, values = [], [], [], [], [], []
         done = False
-        for _ in range(self.config['min_steps_per_rollout']):
-            value, action, logprob, mean = self.net.forward(to_variable(self.obs[np.newaxis]))
-            action = action.cpu().data.numpy() if self.config['cuda'] else action.data.numpy()
+        for step in range(self.config['steps_per_rollout']):
+            value, action, logprob, mean = self.net.forward(to_variable(self.obs[np.newaxis], self.config['cuda']))
+            action = action.cpu().data.numpy()[0] if self.config['cuda'] else action.data.numpy()[0]
             next_obs, reward, done, _ = self.env.step(action)
 
             if self.config['cuda']:
@@ -89,7 +90,7 @@ class TorchPPOEvaluator(PolicyEvaluator):
             last_value = 0.0
         else:
             # bootstrap, we only need the last value to do this
-            value, action, logprob, mean = self.net.forward(to_variable(self.obs[np.newaxis]))
+            value, action, logprob, mean = self.net.forward(to_variable(self.obs[np.newaxis], self.config['cuda']))
 
             if self.config['cuda']:
                 # torch has an additional dimension for batch size, so we need to select that batch
@@ -98,7 +99,7 @@ class TorchPPOEvaluator(PolicyEvaluator):
                 value, = value.data.numpy()[0]
             last_value = value
 
-        # same as old/ppo.py
+        # same as ppo_single/model/ppo.py
         observations = np.asarray(observations)
         rewards = np.asarray(rewards)
         logprobs = np.asarray(logprobs)
@@ -106,12 +107,13 @@ class TorchPPOEvaluator(PolicyEvaluator):
         values = np.asarray(values)
         actions = np.asarray(actions)
         returns = calculate_returns(rewards, dones, last_value, self.config['gamma'])
-        return SampleBatch(
-            {'observations': observations, 'rewards': rewards, 'logprobs': logprobs, 'dones': dones,
-             'values': values, 'actions': actions, 'returns': returns
-             }
-
-        )
+        return SampleBatch({'observations': observations,
+                'rewards': rewards,
+                'logprobs': logprobs,
+                'dones': dones,
+                'values': values,
+                'actions': actions,
+                'returns': returns[:-1]})
 
     def compute_gradients(self, samples):
         """Not used in this evaluator, all done in compute apply"""
@@ -126,7 +128,17 @@ class TorchPPOEvaluator(PolicyEvaluator):
         pass
 
     def set_weights(self, weights):
-        pass
+        # torch.cuda.FloatTenosr can not be serialized correctly resulting in no dimension tensor
+        if self.config['cuda']:
+            for weight in weights:
+                weights[weight] = weights[weight].cuda()
+        self.net.load_state_dict(weights)
 
     def get_weights(self):
-        pass
+        # torch.cuda.FloatTenosr can not be serialized correctly resulting in no dimension tensor
+        # we need to make it to cpu first
+        state_dict = self.net.state_dict()
+        if self.config['cuda']:
+            for key in state_dict:
+                state_dict[key] = state_dict[key].cpu()
+        return state_dict
